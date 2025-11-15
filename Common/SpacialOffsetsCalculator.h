@@ -27,6 +27,4 @@ private:
     ShaderPointer m_CalcShader;
 
     PEPEngine::Graphics::GDescriptor m_Descriptors;
-
-    bool m_bDescriptorsInitialized = false;
 };

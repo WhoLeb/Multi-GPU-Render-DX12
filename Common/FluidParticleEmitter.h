@@ -26,14 +26,44 @@ protected:
     void UpdateSmoothingConstants();
 
     void RunSimulationStep(const std::shared_ptr<GCommandList>& cmdList);
-public:
-    int m_iterationsPerFrame = 3;
-    float m_maxTimeStepFps = 60;
+protected:
+    struct EComputeBufferOffsets
+    {
+        enum Enum : uint8_t
+        {
+            PositionsBufferOffset,
+            PredictedPositionsBufferOffset,
+            VelocityBufferOffset,
+            DensityBufferOffset,
+
+            SortTarget_PositionsBufferOffset,
+            SortTarget_PredictedPositionsBufferOffset,
+            SortTarget_VelocityBufferOffset,
+            
+            SpatialHash_SpatialKeysOffset,
+            SpatialHash_SpatialOffsetsOffset,
+            SpatialHash_SpatialIndicesOffset,
+
+            BufferCount
+        };
+    };
+
+    struct EDrawBufferOffsets
+    {
+        enum Enum : uint8_t
+        {
+            PositionsBufferOffset,
+            VelocityBufferOffset,
+            
+            BufferCount
+        };
+    };
 private:
     FluidParticleDrawData m_drawData;
 
     ParticleSpawner::SpawnData m_spawnData;
     FluidSimulationData m_simData={};
+    int m_iterationsPerFrame = 3;
 
     float m_oldSmoothingRadius;
     SpikyKernels m_smoothingConstants;

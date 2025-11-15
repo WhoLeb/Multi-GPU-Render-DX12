@@ -192,13 +192,9 @@ void HybridParticleApp::PopulateForwardPathCommands(const std::shared_ptr<GComma
         PopulateDrawCommands(cmdList, (RenderMode::Transparent));
 
 
-        /*
         cmdList->SetRootConstantBufferView(StandardShaderSlot::CameraData,
                                            *currentFrameResource->PrimePassConstantUploadBuffer.get(), 0);
         PopulateDrawCommands(cmdList, RenderMode::Particle);
-        */
-
-        PopulateDrawCommands(cmdList, RenderMode::Fluid);
 
 
         cmdList->TransitionBarrier(antiAliasingPrimePath->GetRenderTarget(),
@@ -285,10 +281,10 @@ void HybridParticleApp::Draw(const GameTimer& gt)
         }
 
         fluidParticleEmitter->Dispatch(cmdList, gt);
-        
+
         cmdList->EndQuery(timestampHeapIndex + 1);
         cmdList->ResolveQuery(timestampHeapIndex, 2, timestampHeapIndex * sizeof(UINT64));
-        
+
         currentFrameResource->ComputeFenceValue = computeQueue->ExecuteCommandList(cmdList);
 
         if (UseCrossSync)
@@ -297,6 +293,7 @@ void HybridParticleApp::Draw(const GameTimer& gt)
             secondComputeFence->Signal(sharedComputeFenceValue);
         }
     }
+
 
     {
         const auto cmdList = renderQueue->GetCommandList();
@@ -395,6 +392,7 @@ void HybridParticleApp::InitDevices()
         secondDevice = otherDevice;
     }
 
+
     assets = std::make_shared<AssetsLoader>(primeDevice);
 
 
@@ -406,6 +404,7 @@ void HybridParticleApp::InitDevices()
 
     primeDevice->SharedFence(primeComputeFence, secondDevice, secondComputeFence, sharedComputeFenceValue);
     primeDevice->SharedFence(primeRenderFence, secondDevice, secondRenderFence, sharedRenderFenceValue);
+
 
     logQueue.Push(L"\nPrime Device: " + (primeDevice->GetName()));
     logQueue.Push(
@@ -896,24 +895,21 @@ void HybridParticleApp::CreateGO()
     gameObjects.push_back(std::move(particle));
 
     ParticleSpawner::SpawnRegion spawnRegion;
-    spawnRegion.Center = Vector3::Up * 15.f;
-    spawnRegion.Size = 10.f;
+    spawnRegion.Center = Vector3::Up;
+    spawnRegion.Size = 3.f;
     
     auto fluidSim = std::make_unique<GameObject>();
-    fluidSim->GetTransform()->SetPosition(Vector3::Up * 15.f);
-    fluidSim->SetScale(18.f);
+    fluidSim->GetTransform()->SetPosition(Vector3::Up);
     ParticleSpawner spawner;
-    spawner.ParticleSpawnDensity = 1000;
+    spawner.ParticleSpawnDensity = 500;
     spawner.SpawnRegions.push_back(spawnRegion);
 
     FluidSimulationData simData;
     simData.localToWorld = fluidSim->GetTransform()->GetWorldMatrix();
     simData.worldToLocal = simData.localToWorld.Invert();
-    simData.viscosityStrength = 0.f;
-
     fluidParticleEmitter = std::make_shared<FluidParticleEmitter>(primeDevice, simData, spawner);
     fluidSim->AddComponent(fluidParticleEmitter);
-    typedRenderer[static_cast<int>(RenderMode::Fluid)].push_back(fluidParticleEmitter);
+    typedRenderer[static_cast<int>(RenderMode::Fluid)].push_back(emitter);
     gameObjects.push_back(std::move(fluidSim));
 
     auto platform = std::make_unique<GameObject>();
@@ -932,14 +928,14 @@ void HybridParticleApp::CreateGO()
     rotater->AddComponent(std::make_shared<Rotater>(10));
 
     auto camera = std::make_unique<GameObject>("MainCamera");
-    //camera->GetTransform()->SetParent(rotater->GetTransform().get());
-    camera->AddComponent(std::make_shared<CameraController>());
+    camera->GetTransform()->SetParent(rotater->GetTransform().get());
+    //camera->AddComponent(std::make_shared<CameraController>());
     camera->GetTransform()->SetEulerRotate(Vector3(-30, 270, 0));
-    camera->GetTransform()->SetPosition(Vector3(-20, 20, -15));
+    camera->GetTransform()->SetPosition(Vector3(-1000, 190, -32));
     camera->AddComponent(std::make_shared<Camera>(AspectRatio()));
 
     gameObjects.push_back(std::move(camera));
-    //gameObjects.push_back(std::move(rotater));
+    gameObjects.push_back(std::move(rotater));
 
 
     auto stair = std::make_unique<GameObject>();

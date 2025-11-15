@@ -1,14 +1,14 @@
 #include "pch.h"
 #include "SpacialHash.h"
 
-void SpatialHash::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, size_t count)
+void SpatialHash::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, size_t size)
 {
     m_Device = device;
 
-    m_CountingSort.Initialize(device, count);
+    m_CountingSort.Initialize(device);
     m_OffsetsCalculator.Initialize(device);
     
-    CreateBuffers(count);
+    CreateBuffers(size);
 }
 
 void SpatialHash::Resize(size_t newSize)
@@ -24,12 +24,12 @@ void SpatialHash::Run(const std::shared_ptr<PEPEngine::Graphics::GCommandList>& 
 
 void SpatialHash::CreateBuffers(size_t count)
 {
-    TryCreateBuffer(m_SpatialKeys, count, sizeof(UINT), L"SpatialHash::SpatialKeysBuffer");
-    TryCreateBuffer(m_SpatialIndices, count, sizeof(UINT), L"SpatialHash::SpatialIndicesBuffer");
-    TryCreateBuffer(m_SpatialOffsets, count, sizeof(UINT), L"SpatialHash::SpatialOffsetsBuffer");
+    TryCreateBuffer(m_SpatialKeys, count, sizeof(UINT));
+    TryCreateBuffer(m_SpatialIndices, count, sizeof(UINT));
+    TryCreateBuffer(m_SpatialOffsets, count, sizeof(UINT));
 }
 
-bool SpatialHash::TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride, const std::wstring& name)
+bool SpatialHash::TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride)
 {
     
     bool createNewBuffer = buffer == nullptr
@@ -40,7 +40,7 @@ bool SpatialHash::TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride
     {
         if (buffer && buffer->IsValid())
             buffer->Reset();
-        buffer = std::make_shared<PEPEngine::Graphics::GBuffer>(m_Device, stride, count, name.c_str(), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+        buffer = std::make_shared<PEPEngine::Graphics::GBuffer>(m_Device, stride, count);
 
         return true;
     }

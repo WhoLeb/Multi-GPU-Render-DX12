@@ -27,7 +27,7 @@ public:
 
     void virtual Update(const GameTimer* gt = nullptr);
 
-    void Draw(const std::shared_ptr<GCommandList>& cmdList);
+    void virtual Draw(const std::shared_ptr<GCommandList>& cmdList);
 
     std::shared_ptr<Transform>& GetTransform();
 

@@ -8,7 +8,7 @@ class SpatialHash
 public:
     SpatialHash() = default;
     
-    void Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, size_t count);
+    void Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, size_t size);
 
     void Resize(size_t newSize);
 
@@ -19,7 +19,7 @@ public:
     BufferPointer GetSpatialOffsets() const { return m_SpatialOffsets; }
 private:
     void CreateBuffers(size_t count);
-    bool TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride, const std::wstring& name);
+    bool TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride);
 
 private:
     std::shared_ptr<PEPEngine::Graphics::GDevice> m_Device;
