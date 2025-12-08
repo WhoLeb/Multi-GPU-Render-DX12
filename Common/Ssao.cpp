@@ -203,7 +203,7 @@ void SSAO::RebuildDescriptors() const
     srvDesc.Texture2D.MipLevels = 1;
     normalMap.CreateShaderResourceView(&srvDesc, &normalMapSrvMemory);
 
-    srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
     depthMap.CreateShaderResourceView(&srvDesc, &depthMapSrvMemory);
 
     srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;

@@ -6,17 +6,18 @@
 void SpacialOffsetsCalculator::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device)
 {
     m_device = device;
+    
     m_Descriptors = device->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 2);
 
+    m_RootSignature.AddConstantParameter(1, 0);
+    
     CD3DX12_DESCRIPTOR_RANGE range[2];
     range[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
     range[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 
-    m_RootSignature.AddDescriptorParameter(range, 2);
+    m_RootSignature.AddDescriptorParameter(&range[0], 1);
+    m_RootSignature.AddDescriptorParameter(&range[1], 1);
     
-
-    m_RootSignature.AddConstantParameter(1, 0);
-
     m_RootSignature.Initialize(device);
 
     CompileShaders();
@@ -24,10 +25,12 @@ void SpacialOffsetsCalculator::Initialize(const std::shared_ptr<PEPEngine::Graph
     m_InitPSO.SetRootSignature(m_RootSignature);
     m_InitPSO.SetShader(m_InitShader.get());
     m_InitPSO.Initialize(device);
+    m_InitPSO.GetPSO()->SetName(L"SpatialOffsetCalculation::Init");
     
     m_CalcPSO.SetRootSignature(m_RootSignature);
     m_CalcPSO.SetShader(m_CalcShader.get());
     m_CalcPSO.Initialize(device);
+    m_CalcPSO.GetPSO()->SetName(L"SpatialOffsetCalculation::CalculateOffsets");
 }
 
 void SpacialOffsetsCalculator::Run(
@@ -37,7 +40,10 @@ void SpacialOffsetsCalculator::Run(
 {
     assert(sortedKeys->GetElementCount() == offsets->GetElementCount() && "Count mismatch");
 
-    const size_t GroupCount = ceil(sortedKeys->GetElementCount() / 256.f); 
+    if (!m_bDescriptorsInitialized)
+        CreateDescriptors(sortedKeys, offsets);
+    
+    const size_t GroupCount = ceil(sortedKeys->GetElementCount() / static_cast<float>(FLUID_SIM_GROUP_COUNT)); 
     
     commandList->TransitionBarrier(sortedKeys->GetD3D12Resource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     commandList->TransitionBarrier(offsets->GetD3D12Resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -71,11 +77,14 @@ void SpacialOffsetsCalculator::Run(
 
 void SpacialOffsetsCalculator::CompileShaders()
 {
+    static std::string threadCountStr = std::to_string(FLUID_SIM_GROUP_COUNT);
+    D3D_SHADER_MACRO macros[] = {"GROUP_SIZE", threadCountStr.c_str(), NULL, NULL};
+    
     m_InitShader = std::move(
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\SpacialOffsets.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "InitializeOffsets",
             "cs_5_1"));
     m_InitShader->LoadAndCompile();
@@ -84,7 +93,7 @@ void SpacialOffsetsCalculator::CompileShaders()
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\SpacialOffsets.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "CalculateOffsets",
             "cs_5_1"));
     m_CalcShader->LoadAndCompile();
@@ -111,5 +120,7 @@ void SpacialOffsetsCalculator::CreateDescriptors(const BufferPointer& sortedKeys
     uavDesc.Buffer.NumElements = offsets->GetElementCount();
     uavDesc.Buffer.StructureByteStride = offsets->GetStride();
     offsets->CreateUnorderedAccessView(&uavDesc, &m_Descriptors, 1);
+
+    m_bDescriptorsInitialized = true;
 }
 

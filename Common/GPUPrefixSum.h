@@ -7,14 +7,15 @@ class GPUPrefixSum
 {
     enum RSSlots : UINT
     {
+        ItemCountSlot,
         ElementsBufferSlot,
         GroupSumsBufferSlot,
-        ItemCountSlot
+        RSSlotsCount
     };
 public:
     GPUPrefixSum() = default;
     
-    void Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device);
+    void Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, uint32_t count);
     
     void Run(
         const std::shared_ptr<PEPEngine::Graphics::GCommandList>& commandList,
@@ -25,11 +26,13 @@ public:
 private:
     void CompileShaders();
 
+    uint32_t GetNumGroups(uint32_t count) const;
+
 private:
     bool m_areDescriptorsAllocated = false;
     size_t m_particleCount = 0;
     
-    int c_ThreadGroupSize{256};
+    size_t ThreadGroupCount{256};
     
     std::unordered_map<int, std::shared_ptr<PEPEngine::Graphics::GBuffer>> m_FreeBuffers;
     std::unordered_map<int, int> m_FreeBuffersOffsets;

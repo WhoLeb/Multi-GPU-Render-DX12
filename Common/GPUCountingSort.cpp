@@ -6,9 +6,10 @@
 #include "GRootSignature.h"
 
 
-void GPUCountingSort::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device)
+void GPUCountingSort::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDevice>& device, size_t count)
 {
     m_Device = device;
+   
     
     // Parameter for numInputs (register b0)
     m_SortSignature.AddConstantParameter(1, 0);
@@ -30,17 +31,22 @@ void GPUCountingSort::Initialize(const std::shared_ptr<PEPEngine::Graphics::GDev
 
     CompileShaders();
 
-    for (uint8_t kernel = EKernels::ClearCounts; kernel < EKernels::NumKernels; kernel++)
+    for (auto kernel : EKernels::All)
     {
         m_PSOs[kernel] = std::make_shared<PEPEngine::Graphics::ComputePSO>();
         m_PSOs[kernel]->SetRootSignature(m_SortSignature);
         m_PSOs[kernel]->SetShader(m_Shaders[kernel].get());
         m_PSOs[kernel]->Initialize(device);
+        m_PSOs[kernel]->GetPSO()->SetName(EKernels::ToWide(kernel).c_str());
     }
 
     m_ComputeDescriptors = m_Device->AllocateDescriptors(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 5);
     
-    scan.Initialize(device);
+    TryCreateBuffer(m_SortedItemsBuffer, sizeof(UINT), count, L"CountingSort::SortedItemsBuffer");
+    TryCreateBuffer(m_SortedKeysBuffer, sizeof(UINT), count, L"CountingSort::SortedKeysBuffer");
+    TryCreateBuffer(m_CountsBuffer, sizeof(UINT), count, L"CountingSort::CountsBuffer");
+    
+    scan.Initialize(device, count);
 }
 
 void GPUCountingSort::Run(
@@ -50,12 +56,8 @@ void GPUCountingSort::Run(
     UINT maxValue)
 {
     UINT count = itemsBuffer->GetElementCount();
-    const size_t numGroupsX = ceil(static_cast<float>(count) / static_cast<float>(256));
+    const size_t numGroupsX = ceil(static_cast<float>(count) / static_cast<float>(FLUID_SIM_GROUP_COUNT));
 
-    // these return false if the buffer already exist, i don't care about it really
-    TryCreateBuffer(m_SortedItemsBuffer, sizeof(UINT), count);
-    TryCreateBuffer(m_SortedKeysBuffer, sizeof(UINT), count);
-    TryCreateBuffer(m_CountsBuffer, sizeof(UINT), count);
     if (!m_bDescriptorsInitialized)
         InitializeDescriptors(itemsBuffer, keysBuffer);
 
@@ -75,7 +77,7 @@ void GPUCountingSort::Run(
     commandList->SetRootDescriptorTable(ESortSlots::InputItemsSlot,     &m_ComputeDescriptors, EBufferOffsets::ItemsBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::InputKeysSlot,      &m_ComputeDescriptors, EBufferOffsets::KeysBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::SortedItemsSlot,    &m_ComputeDescriptors, EBufferOffsets::SortedItemsBuffer);
-    commandList->SetRootDescriptorTable(ESortSlots::SortedItemsSlot,    &m_ComputeDescriptors, EBufferOffsets::SortedKeysBuffer);
+    commandList->SetRootDescriptorTable(ESortSlots::SortedKeysSlot,     &m_ComputeDescriptors, EBufferOffsets::SortedKeysBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::CountsSlot,         &m_ComputeDescriptors, EBufferOffsets::CountsBuffer);
 
     {
@@ -107,7 +109,7 @@ void GPUCountingSort::Run(
     commandList->SetRootDescriptorTable(ESortSlots::InputItemsSlot,     &m_ComputeDescriptors, EBufferOffsets::ItemsBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::InputKeysSlot,      &m_ComputeDescriptors, EBufferOffsets::KeysBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::SortedItemsSlot,    &m_ComputeDescriptors, EBufferOffsets::SortedItemsBuffer);
-    commandList->SetRootDescriptorTable(ESortSlots::SortedItemsSlot,    &m_ComputeDescriptors, EBufferOffsets::SortedKeysBuffer);
+    commandList->SetRootDescriptorTable(ESortSlots::SortedKeysSlot,    &m_ComputeDescriptors, EBufferOffsets::SortedKeysBuffer);
     commandList->SetRootDescriptorTable(ESortSlots::CountsSlot,         &m_ComputeDescriptors, EBufferOffsets::CountsBuffer);
 
     commandList->SetPipelineState(*m_PSOs[EKernels::ScatterOutput]);
@@ -128,11 +130,14 @@ void GPUCountingSort::Run(
 
 void GPUCountingSort::CompileShaders()
 {
+    static std::string threadCountStr = std::to_string(FLUID_SIM_GROUP_COUNT);
+    D3D_SHADER_MACRO macros[] = {"GROUP_SIZE", threadCountStr.c_str(), NULL, NULL};
+    
     m_Shaders[EKernels::ClearCounts] = std::move(
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\GPUSort\\CountingSort.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "ClearCounts",
             "cs_5_1"));
     m_Shaders[EKernels::ClearCounts]->LoadAndCompile();
@@ -141,7 +146,7 @@ void GPUCountingSort::CompileShaders()
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\GPUSort\\CountingSort.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "CalculateCounts",
             "cs_5_1"));
     m_Shaders[EKernels::CalculateCounts]->LoadAndCompile();
@@ -150,7 +155,7 @@ void GPUCountingSort::CompileShaders()
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\GPUSort\\CountingSort.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "ScatterOutput",
             "cs_5_1"));
     m_Shaders[EKernels::ScatterOutput]->LoadAndCompile();
@@ -159,13 +164,13 @@ void GPUCountingSort::CompileShaders()
         std::make_shared<PEPEngine::Graphics::GShader>(
             L"Shaders\\Helpers\\GPUSort\\CountingSort.hlsl",
             PEPEngine::Graphics::ComputeShader,
-            nullptr,
+            macros,
             "CopyBack",
             "cs_5_1"));
     m_Shaders[EKernels::CopyBack]->LoadAndCompile();
 }
 
-bool GPUCountingSort::TryCreateBuffer(std::shared_ptr<PEPEngine::Graphics::GBuffer>& buffer, UINT stride, UINT count)
+bool GPUCountingSort::TryCreateBuffer(std::shared_ptr<PEPEngine::Graphics::GBuffer>& buffer, UINT stride, UINT count, const std::wstring& name)
 {
     bool createNewBuffer = buffer == nullptr
                         || !buffer->IsValid()
@@ -173,8 +178,9 @@ bool GPUCountingSort::TryCreateBuffer(std::shared_ptr<PEPEngine::Graphics::GBuff
                         || buffer->GetElementCount() != count;
     if (createNewBuffer)
     {
-        buffer->Reset();
-        buffer = std::make_shared<PEPEngine::Graphics::GBuffer>(m_Device, stride, count);
+        if (buffer && buffer->IsValid())
+            buffer->Reset();
+        buffer = std::make_shared<PEPEngine::Graphics::GBuffer>(m_Device, stride, count, name.c_str(), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
         m_bDescriptorsInitialized = false;
         return true;
@@ -186,15 +192,13 @@ void GPUCountingSort::InitializeDescriptors(const BufferPtr& itemsBuffer, const 
 {
     if (m_bDescriptorsInitialized)
         return;
-
-    /*
-     * I could have probably put these in some kind of an array, but i didn't think it would be necessary
-     */
+    
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
     uavDesc.Buffer.FirstElement = 0;
+    
     uavDesc.Buffer.NumElements = itemsBuffer->GetElementCount();
     uavDesc.Buffer.StructureByteStride = itemsBuffer->GetStride();
     itemsBuffer->CreateUnorderedAccessView(&uavDesc, &m_ComputeDescriptors, EBufferOffsets::ItemsBuffer);

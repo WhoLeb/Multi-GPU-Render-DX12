@@ -1,38 +1,42 @@
 #include "pch.h"
 #include "FluidEmitter.h"
 
+/*
 void FluidEmitter::CompileComputeShaders()
 {
+    static std::string threadCountStr = std::to_string(ThreadGroupCount);
+    D3D_SHADER_MACRO macros[] = {"GROUP_SIZE", threadCountStr.c_str(), NULL, NULL};
+    
     computeKernels[EKernels::ExternalForces] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "ExternalForces", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "ExternalForces", "cs_5_1"));
     computeKernels[EKernels::ExternalForces]->LoadAndCompile();
     
     computeKernels[EKernels::UpdateSpatialHash] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "UpdateSpatialHash", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "UpdateSpatialHash", "cs_5_1"));
     computeKernels[EKernels::UpdateSpatialHash]->LoadAndCompile();
     
     computeKernels[EKernels::Reorder] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "Reorder", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "Reorder", "cs_5_1"));
     computeKernels[EKernels::Reorder]->LoadAndCompile();
     
     computeKernels[EKernels::ReorderCopyBack] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "ReorderCopyBack", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "ReorderCopyBack", "cs_5_1"));
     computeKernels[EKernels::ReorderCopyBack]->LoadAndCompile();
     
     computeKernels[EKernels::CalculateDensities] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "CalculateDensities", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "CalculateDensities", "cs_5_1"));
     computeKernels[EKernels::CalculateDensities]->LoadAndCompile();
     
     computeKernels[EKernels::CalculatePressureForce] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "CalculatePressureForce", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "CalculatePressureForce", "cs_5_1"));
     computeKernels[EKernels::CalculatePressureForce]->LoadAndCompile();
     
     computeKernels[EKernels::CalculateViscosity] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "CalculateViscosity", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "CalculateViscosity", "cs_5_1"));
     computeKernels[EKernels::CalculateViscosity]->LoadAndCompile();
     
     computeKernels[EKernels::UpdatePositions] = std::move(
-        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, nullptr, "UpdatePositions", "cs_5_1"));
+        std::make_shared<GShader>(L"Shaders\\FluidSimulation.hlsl", ComputeShader, macros, "UpdatePositions", "cs_5_1"));
     computeKernels[EKernels::UpdatePositions]->LoadAndCompile();
 }
 
@@ -53,7 +57,7 @@ void FluidEmitter::PSOInitialize()
         range[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 1);
         range[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 1);
         range[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, Atlas.size(), 2, 1);
-        */
+        #1#
 
         CD3DX12_DESCRIPTOR_RANGE range[2];
         range[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
@@ -144,3 +148,4 @@ void FluidEmitter::PSOInitialize()
         }
     }
 }
+*/

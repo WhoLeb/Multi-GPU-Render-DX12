@@ -22,6 +22,7 @@ private:
     bool TryCreateBuffer(BufferPointer& buffer, UINT count, UINT stride);
 
 private:
+    size_t ThreadGroupSize = 256;
     std::shared_ptr<PEPEngine::Graphics::GDevice> m_Device;
 
     BufferPointer m_SpatialKeys;

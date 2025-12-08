@@ -16,6 +16,7 @@ private:
     void CompileShaders();
     void CreateDescriptors(const BufferPointer& sortedKeys, const BufferPointer& offsets);
 private:
+    
     std::shared_ptr<PEPEngine::Graphics::GDevice> m_device;
     
     PEPEngine::Graphics::GRootSignature m_RootSignature;
