@@ -68,7 +68,7 @@ void HybridSSAOApp::Update(const GameTimer& gt)
     }
     else
     {
-        primeDevice->ReleaseSlateDescriptors(currentFrameResource->PrimeRenderFenceValue);
+        primeDevice->ReleaseStaleDescriptors(currentFrameResource->PrimeRenderFenceValue);
     }
 
     if (currentFrameResource->SecondRenderFenceValue != 0 && !secondQueue->IsFinish(
@@ -78,7 +78,7 @@ void HybridSSAOApp::Update(const GameTimer& gt)
     }
     else
     {
-        secondDevice->ReleaseSlateDescriptors(currentFrameResource->SecondRenderFenceValue);
+        secondDevice->ReleaseStaleDescriptors(currentFrameResource->SecondRenderFenceValue);
     }
 
     mLightRotationAngle += 0.1f * gt.DeltaTime();

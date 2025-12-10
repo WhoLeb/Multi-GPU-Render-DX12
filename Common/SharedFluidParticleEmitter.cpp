@@ -290,7 +290,7 @@ SharedFluidParticleEmitter::SharedFluidParticleEmitter(
     SecondaryResources.Initialize(secondaryDevice, simData, spawnData);
     UpdateSmoothingConstants(SecondaryResources);
 
-    m_crossResources.Initialize(PrimaryResources, primeDevice, secondaryDevice);
+    CrossResources.Initialize(PrimaryResources, primeDevice, secondaryDevice);
 
     InitializePSO();
     InitializeDescriptors();
@@ -298,6 +298,19 @@ SharedFluidParticleEmitter::SharedFluidParticleEmitter(
 
 void SharedFluidParticleEmitter::Update(const PEPEngine::Utils::GameTimer* gt)
 {
+    if (!hasScale)
+    {
+        m_baseScale = gameObject->GetComponent<Transform>()->GetScale();
+        hasScale = true;
+    }
+    Vector3 tempScale = m_baseScale;
+    tempScale.x = m_baseScale.x * (sin(gt->TotalTime() * 0.5) + 1.5) * 0.5;
+    
+    PrimaryResources.SimData.localToWorld = gameObject->GetTransform()->GetWorldMatrix();
+    PrimaryResources.SimData.worldToLocal = PrimaryResources.SimData.localToWorld.Invert();
+    
+    gameObject->GetComponent<Transform>()->SetScale(tempScale);
+    
     const auto* cam = HybridParticleApp::GetApp().GetMainCamera();
     auto& viewMat = cam->GetViewMatrix();
     auto& projMat = cam->GetProjectionMatrix();

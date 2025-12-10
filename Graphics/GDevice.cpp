@@ -117,7 +117,7 @@ namespace PEPEngine::Graphics
         CloseHandle(handle);
     }
 
-    void GDevice::ReleaseSlateDescriptors(uint64_t frameCount) const
+    void GDevice::ReleaseStaleDescriptors(uint64_t frameCount) const
     {
         for (auto& allocator : graphicAllocators)
         {

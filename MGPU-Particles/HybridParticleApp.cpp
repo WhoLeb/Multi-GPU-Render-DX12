@@ -38,14 +38,30 @@ void HybridParticleApp::Update(const GameTimer& gt)
     primeGPUComputingTime = primeDevice->GetCommandQueue(GQueueType::Compute)->GetTimestamp(olderIndex);
     secondGPUComputingTime = secondDevice->GetCommandQueue(GQueueType::Compute)->GetTimestamp(olderIndex);
 
-    const auto commandQueue = primeDevice->GetCommandQueue(GQueueType::Graphics);
+    const auto primeRenderQueue = primeDevice->GetCommandQueue(GQueueType::Graphics);
+    const auto primeComputeQueue = primeDevice->GetCommandQueue(GQueueType::Compute);
+    const auto secondaryComputeQueue = secondDevice->GetCommandQueue(GQueueType::Compute);
 
     currentFrameResource = frameResources[currentFrameResourceIndex];
 
-    if (currentFrameResource->PrimeRenderFenceValue != 0 && !commandQueue->IsFinish(
-        currentFrameResource->PrimeRenderFenceValue))
+    if ((currentFrameResource->PrimeRenderFenceValue != 0 && !primeRenderQueue->IsFinish(currentFrameResource->PrimeRenderFenceValue))
+        || (currentFrameResource->PrimeComputeFenceValue != 0 && !primeComputeQueue->IsFinish(currentFrameResource->PrimeComputeFenceValue)))
     {
-        commandQueue->WaitForFenceValue(currentFrameResource->PrimeRenderFenceValue);
+        primeRenderQueue->WaitForFenceValue(currentFrameResource->PrimeRenderFenceValue);
+        primeComputeQueue->WaitForFenceValue(currentFrameResource->PrimeComputeFenceValue);
+    }
+    else
+    {
+        primeDevice->ReleaseStaleDescriptors(currentFrameResource->PrimeRenderFenceValue);
+    }
+    
+    if ((currentFrameResource->SecondaryComputeFenceValue != 0 && !secondaryComputeQueue->IsFinish(currentFrameResource->SecondaryComputeFenceValue)))
+    {
+        secondaryComputeQueue->WaitForFenceValue(currentFrameResource->SecondaryComputeFenceValue);
+    }
+    else
+    {
+        secondDevice->ReleaseStaleDescriptors(currentFrameResource->SecondaryComputeFenceValue);
     }
 
     mLightRotationAngle += 0.1f * gt.DeltaTime();
@@ -250,7 +266,9 @@ void HybridParticleApp::Draw(const GameTimer& gt)
 
     const UINT timestampHeapIndex = 2 * currentFrameResourceIndex;
 
+    auto renderQueue = primeDevice->GetCommandQueue(GQueueType::Graphics);
 
+    /*
     std::shared_ptr<GCommandQueue> computeQueue;
 
     if (UseCrossAdapter)
@@ -262,7 +280,6 @@ void HybridParticleApp::Draw(const GameTimer& gt)
         computeQueue = primeDevice->GetCommandQueue(GQueueType::Compute);
     }
 
-    auto renderQueue = primeDevice->GetCommandQueue(GQueueType::Graphics);
 
     if (UseCrossSync)
     {
@@ -279,23 +296,74 @@ void HybridParticleApp::Draw(const GameTimer& gt)
 
         cmdList->EndQuery(timestampHeapIndex);
 
-        for (auto emitter : crossEmitter)
-        {
-            emitter->Dispatch(cmdList);
-        }
-
         fluidParticleEmitter->Dispatch(cmdList, fluidParticleEmitter->PrimaryResources, gt);
         
         cmdList->EndQuery(timestampHeapIndex + 1);
         cmdList->ResolveQuery(timestampHeapIndex, 2, timestampHeapIndex * sizeof(UINT64));
         
-        currentFrameResource->ComputeFenceValue = computeQueue->ExecuteCommandList(cmdList);
+        currentFrameResource->PrimeComputeFenceValue = computeQueue->ExecuteCommandList(cmdList);
 
         if (UseCrossSync)
         {
-            sharedComputeFenceValue = currentFrameResource->ComputeFenceValue;
+            sharedComputeFenceValue = currentFrameResource->PrimeComputeFenceValue;
             secondComputeFence->Signal(sharedComputeFenceValue);
         }
+    }
+    */
+
+    std::shared_ptr<GCommandQueue> computeQueue;
+    if (UseCrossAdapter)
+    {
+        computeQueue = secondDevice->GetCommandQueue(GQueueType::Compute);
+    }
+    else
+    {
+        computeQueue = primeDevice->GetCommandQueue(GQueueType::Compute);
+    }
+    
+    if (UseCrossSync)
+    {
+        computeQueue->Wait(secondRenderFence, sharedRenderFenceValue);
+    }
+    else
+    {
+        computeQueue->Wait(renderQueue);
+    }
+    
+    {
+        const auto& primeComputeQueue = primeDevice->GetCommandQueue(GQueueType::Compute);
+        const auto primeCommandList = primeComputeQueue->GetCommandList();
+
+        if (UseCrossAdapter)
+        {
+            {
+                primeCommandList->CopyResource(*fluidParticleEmitter->PrimaryResources.PositionsBuffer, fluidParticleEmitter->CrossResources.sharedPositions->GetPrimeResource());
+                primeCommandList->CopyResource(*fluidParticleEmitter->PrimaryResources.VelocityBuffer, fluidParticleEmitter->CrossResources.sharedVelocities->GetPrimeResource());
+            }
+            {
+                if (currentFrameResource->SecondaryComputeFenceValue == 0 || computeQueue->IsFinish(currentFrameResource->SecondaryComputeFenceValue))
+                {
+                    auto& resources = fluidParticleEmitter->SecondaryResources;
+                    const auto& crossResources = fluidParticleEmitter->CrossResources;
+
+                    const auto secondCommandList = computeQueue->GetCommandList();
+
+                    fluidParticleEmitter->Dispatch(secondCommandList, resources, gt);
+
+                    secondCommandList->CopyResource(crossResources.sharedPositions->GetSharedResource(), *resources.PositionsBuffer);
+                    secondCommandList->CopyResource(crossResources.sharedVelocities->GetSharedResource(), *resources.VelocityBuffer);
+
+                    currentFrameResource->SecondaryComputeFenceValue = computeQueue->ExecuteCommandList(secondCommandList);
+                }
+            }
+        }
+        else
+        {
+            fluidParticleEmitter->Dispatch(primeCommandList, fluidParticleEmitter->PrimaryResources, gt);
+        }
+        
+        currentFrameResource->PrimeComputeFenceValue = primeComputeQueue->ExecuteCommandList(primeCommandList);
+        
     }
 
     {
@@ -329,8 +397,8 @@ void HybridParticleApp::Draw(const GameTimer& gt)
 
         if (UseCrossSync)
         {
-            sharedRenderFenceValue = currentFrameResource->PrimeRenderFenceValue;
-            primeRenderFence->Signal(sharedRenderFenceValue);
+            sharedComputeFenceValue = currentFrameResource->PrimeComputeFenceValue;
+            secondComputeFence->Signal(sharedComputeFenceValue);
         }
     }
 
@@ -1107,10 +1175,6 @@ void HybridParticleApp::CalculateFrameStats()
             if (UseCrossAdapter == false)
             {
                 Flush();
-                for (auto&& emitter : crossEmitter)
-                {
-                    emitter->EnableShared();
-                }
                 UseCrossAdapter = true;
             }
             else
@@ -1121,7 +1185,7 @@ void HybridParticleApp::CalculateFrameStats()
                     UseCrossSync = true;
 
                     primeRenderFence->Signal(currentFrameResource->PrimeRenderFenceValue);
-                    primeComputeFence->Signal(currentFrameResource->ComputeFenceValue);
+                    primeComputeFence->Signal(currentFrameResource->PrimeComputeFenceValue);
                 }
                 else
                     IsStop = true;
@@ -1605,4 +1669,10 @@ LRESULT HybridParticleApp::MsgProc(const HWND hwnd, const UINT msg, const WPARAM
     }
 
     return D3DApp::MsgProc(hwnd, msg, wParam, lParam);
+}
+
+void HybridParticleApp::SwitchDevice()
+{
+    Flush();
+    m_bUseSharedFluidSim = !m_bUseSharedFluidSim;
 }

@@ -197,10 +197,10 @@ public:
     
     FluidSimulationResources PrimaryResources;
     FluidSimulationResources SecondaryResources;
+    FluidSimulationCrossResources CrossResources;
 private:
     std::shared_ptr<GDevice> m_primaryDevice;
 
-    FluidSimulationCrossResources m_crossResources;
     
     GDescriptor m_graphicsDescriptors;
     
@@ -208,4 +208,7 @@ private:
     
     GRootSignature m_renderSignature;
     std::shared_ptr<GraphicPSO> m_renderPSO;
+
+    Vector3 m_baseScale;
+    bool hasScale = false;
 };

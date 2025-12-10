@@ -89,7 +89,7 @@ protected:
 
     bool IsStop = false;
 
-    const int StatisticStepSecondsCount = 180;
+    const int StatisticStepSecondsCount = 30;
 
 
     std::shared_ptr<ShadowMap> shadowPath;
@@ -107,7 +107,6 @@ protected:
     custom_vector<CrossAdapterParticleEmitter*> crossEmitter = MemoryAllocator::CreateVector<CrossAdapterParticleEmitter
         *>();
 
-    std::shared_ptr<SharedFluidParticleEmitter> fluidParticleEmitter;
 
     ComPtr<ID3D12Fence> primeComputeFence;
     ComPtr<ID3D12Fence> secondComputeFence;
@@ -143,4 +142,10 @@ protected:
     Vector3 mRotatedLightDirections[3];
 
     DirectX::BoundingSphere mSceneBounds;
+
+public:
+    void SwitchDevice();
+private:
+    bool m_bUseSharedFluidSim = false;
+    std::shared_ptr<SharedFluidParticleEmitter> fluidParticleEmitter;
 };
